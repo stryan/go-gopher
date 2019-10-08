@@ -554,10 +554,11 @@ func GetItemType(p string) ItemType {
 // Server defines parameters for running a Gopher server.
 // A zero value for Server is valid configuration.
 type Server struct {
-	Addr    string  // TCP address to listen on, ":gopher" if empty
+	//Addr    string  // TCP address to listen on, ":gopher" if empty
 	Handler Handler // handler to invoke, gopher.DefaultServeMux if nil
-
-	Hostname string // FQDN Hostname to reach this server on
+	LocalHostname string //FQDN Hostname to bind on
+	RemoteHostname string // FQDN Hostname to reach this server on
+	Port string
 
 	// ErrorLog specifies an optional logger for errors accepting
 	// connections and unexpected behavior from handlers.
@@ -587,12 +588,16 @@ func (sh serverHandler) ServeGopher(rw ResponseWriter, req *Request) {
 // If the address is not a FQDN, LocalHost as passed to the Handler
 // may not be accessible to clients, so links may not work.
 func (s *Server) ListenAndServe() error {
-	addr := s.Addr
-	if addr == "" {
-		addr = ":70"
+	addrPort := s.Port
+	if addrPort == "" {
+		addrPort = ":70"
+	}
+	localHost := s.LocalHostname
+	if localHost == "" {
+		localHost = "localhost"
 	}
 
-	ln, err := net.Listen("tcp", addr)
+	ln, err := net.Listen("tcp", localHost+":"+addrPort)
 	if err != nil {
 		return err
 	}
@@ -615,9 +620,13 @@ func (s *Server) ListenAndServe() error {
 //
 // ListenAndServeTLS always returns a non-nil error.
 func (s *Server) ListenAndServeTLS(certFile, keyFile string) error {
-	addr := s.Addr
-	if addr == "" {
-		addr = ":73"
+	addrPort := s.Port
+	if addrPort == "" {
+		addrPort = ":73"
+	}
+	localHost := s.LocalHostname
+	if localHost == "" {
+		localHost = "localhost"
 	}
 
 	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
@@ -627,7 +636,7 @@ func (s *Server) ListenAndServeTLS(certFile, keyFile string) error {
 	config := tls.Config{Certificates: []tls.Certificate{cert}}
 	config.Rand = rand.Reader
 
-	ln, err := tls.Listen("tcp", addr, &config)
+	ln, err := tls.Listen("tcp", localHost+addrPort, &config)
 	if err != nil {
 		log.Fatalf("server: listen: %s", err)
 	}
@@ -646,7 +655,7 @@ func (s *Server) Serve(l net.Listener) error {
 	for {
 		rw, err := l.Accept()
 		if err != nil {
-			fmt.Errorf("error acceptig new client: %s", err)
+			fmt.Errorf("error accepting new client: %s", err)
 			return err
 		}
 
@@ -760,11 +769,11 @@ func (c *conn) readRequest(ctx context.Context) (w *response, err error) {
 	}
 
 	server := ctx.Value(ServerContextKey).(*Server)
-	if server.Hostname == "" {
+	if server.RemoteHostname == "" {
 		req.LocalHost = host
 		req.LocalPort = int(n)
 	} else {
-		req.LocalHost = server.Hostname
+		req.LocalHost = server.RemoteHostname
 		// TODO: Parse this from -bind option
 		req.LocalPort = int(n)
 	}
@@ -812,8 +821,8 @@ func (s *Server) logf(format string, args ...interface{}) {
 //    }
 //
 // ListenAndServe always returns a non-nil error.
-func ListenAndServe(addr string, handler Handler) error {
-	server := &Server{Addr: addr, Handler: handler}
+func ListenAndServe(remote string, local string, port string, handler Handler) error {
+	server := &Server{LocalHostname: local, RemoteHostname: remote, Port: port, Handler: handler}
 	return server.ListenAndServe()
 }
 
@@ -846,8 +855,8 @@ func ListenAndServe(addr string, handler Handler) error {
 // One can use generate_cert.go in crypto/tls to generate cert.pem and key.pem.
 //
 // ListenAndServeTLS always returns a non-nil error.
-func ListenAndServeTLS(addr, certFile, keyFile string, handler Handler) error {
-	server := &Server{Addr: addr, Handler: handler}
+func ListenAndServeTLS(remote string, local string, port string, certFile, keyFile string, handler Handler) error {
+	server := &Server{LocalHostname: local, RemoteHostname: remote, Port: port, Handler: handler}
 	return server.ListenAndServeTLS(certFile, keyFile)
 }
 

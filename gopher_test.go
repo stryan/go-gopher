@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/prologic/go-gopher"
+	"github.com/stryan/go-gopher"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -24,12 +24,12 @@ func Example_client() {
 
 func Example_server() {
 	gopher.HandleFunc("/hello", hello)
-	log.Fatal(gopher.ListenAndServe("localhost:7000", nil))
+	log.Fatal(gopher.ListenAndServe("localhost","localhost","7000", nil))
 }
 
 func Example_fileserver() {
 	gopher.Handle("/", gopher.FileServer(gopher.Dir("/tmp")))
-	log.Fatal(gopher.ListenAndServe("localhost:7000", nil))
+	log.Fatal(gopher.ListenAndServe("localhost","localhost","7000", nil))
 }
 
 func TestGet(t *testing.T) {
@@ -78,7 +78,7 @@ func TestParseItem(t *testing.T) {
 		Type:        gopher.FILE,
 		Description: "foo",
 		Selector:    "/foo",
-		Host:        "localhost",
+		Host:        "127.0.0.1",
 		Port:        70,
 		Extras:      []string{},
 	})
@@ -126,7 +126,7 @@ func TestMain(m *testing.M) {
 	gopher.Handle("/", gopher.FileServer(gopher.Dir("./testdata")))
 	gopher.HandleFunc("/hello", hello)
 	go func() {
-		log.Fatal(gopher.ListenAndServe("localhost:7000", nil))
+		log.Fatal(gopher.ListenAndServe("localhost","localhost","7000", nil))
 	}()
 
 	os.Exit(m.Run())
